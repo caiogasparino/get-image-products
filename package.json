@@ -1,0 +1,18 @@
+{
+  "dependencies": {
+    "axios": "^1.8.4",
+    "cheerio": "^1.0.0",
+    "csv-parser": "^3.2.0",
+    "puppeteer": "^24.6.1"
+  },
+  "type": "module",
+  "scripts": {
+    "start": "node script.js"
+  },
+  "name": "get-image-products",
+  "version": "1.0.0",
+  "main": "script.js",
+  "repository": "git@github.com:caiogasparino/get-image-products.git",
+  "author": "Caio Gasparino Vieira Campos de Oliveira <cgoliveira.3com@sofisa.com.br>",
+  "license": "MIT"
+}
