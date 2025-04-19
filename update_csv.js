@@ -5,7 +5,7 @@ import { stringify } from 'csv-stringify/sync';
 
 const csvFilePath = 'product.csv';
 const imageBaseDir = 'imagens';
-const githubBaseUrl = 'https://raw.githubusercontent.com/caiogasparino/get-image-products/refs/heads/main/imagens/';
+const supabaseUrl = 'https://stpdyvhrwpnfrypzqktw.supabase.co/storage/v1/object/public/images/';
 const imageExtensions = ['.webp', '.jpg', '.jpeg', '.png', '.gif'];
 
 const results = [];
@@ -28,9 +28,8 @@ fs.createReadStream(csvFilePath)
         }
       }
 
-      // Try accessing the header without quotes, as csv-parser might trim them
-      const identifier = row['Identificador URL'];
-      const newRow = { ...row }; // Create a copy to modify
+      const identifier = row['"Identificador URL"'];
+      const newRow = { ...row };
       console.log(`\nProcessing row with identifier: ${identifier}`);
 
       if (identifier) {
@@ -49,7 +48,7 @@ fs.createReadStream(csvFilePath)
             });
             console.log(`Image files filtered: ${imageFiles.join(', ')}`);
 
-            imageUrls = imageFiles.map(file => `${githubBaseUrl}${identifier}/${encodeURIComponent(file)}`);
+            imageUrls = imageFiles.map(file => `${supabaseUrl}${identifier}/${encodeURIComponent(file)}`);
             console.log(`Generated URLs: ${imageUrls.join(', ')}`);
           } else {
             console.warn(`Directory check failed: ${imageDir} (Exists: ${fs.existsSync(imageDir)}, IsDirectory: ${fs.existsSync(imageDir) ? fs.lstatSync(imageDir).isDirectory() : 'N/A'})`);
@@ -57,32 +56,24 @@ fs.createReadStream(csvFilePath)
         } catch (err) {
           console.error(`Error processing directory ${imageDir}:`, err);
         }
-        // Ensure the key matches the header, including quotes if necessary for stringify
         newRow['URL image'] = imageUrls.join(',');
         console.log(`Assigned URLs to column: ${newRow['URL image']}`);
       } else {
         console.warn('Row missing or has empty "Identificador URL":', row);
-        newRow['URL image'] = ''; // Add empty value if identifier is missing
+        newRow['URL image'] = '';
       }
       updatedResults.push(newRow);
     }
 
-    // Ensure headers are correctly ordered and include the new one
     const finalHeaders = headers ? headers.map(h => ({ key: h, header: h })) : [];
-    // Find the original header key for the identifier - adjust based on parsing result
-    const identifierHeaderKey = Object.keys(results[0] || {}).find(key => key.includes('Identificador URL')) || 'Identificador URL';
+    const identifierHeaderKey = Object.keys(results[0] || {}).find(key => key.includes('Identificador URL')) || '"Identificador URL"';
 
-
-    // Prepare data for csv-stringify, ensuring keys match headers
     const dataToWrite = updatedResults.map(row => {
       const orderedRow = {};
       if (headers) {
         headers.forEach(header => {
-          // Use the potentially unquoted key found earlier
-          const keyToUse = header === 'Identificador URL' ? identifierHeaderKey : header;
-          // Also handle the case where the original header *was* quoted for stringify columns
-          const columnHeader = header === 'Identificador URL' ? '"Identificador URL"' : header;
-          orderedRow[columnHeader] = row[keyToUse] !== undefined ? row[keyToUse] : '';
+          const keyToUse = header === '"Identificador URL"' ? identifierHeaderKey : header;
+          orderedRow[header] = row[keyToUse] !== undefined ? row[keyToUse] : '';
         });
       }
       return orderedRow;
@@ -90,20 +81,13 @@ fs.createReadStream(csvFilePath)
 
 
     try {
-      // Use csv-stringify to write back, ensuring correct quoting and delimiter
-      // Ensure the columns output includes the quotes for the identifier header if needed
-      const columnsForStringify = finalHeaders.map(col => ({
-        key: col.key === 'Identificador URL' ? '"Identificador URL"' : col.key, // Key for lookup in orderedRow
-        header: col.header === 'Identificador URL' ? '"Identificador URL"' : col.header // Header text in output file
-      }));
-
       const output = stringify(dataToWrite, {
         header: true,
-        columns: columnsForStringify, // Use the potentially re-quoted headers
+        columns: finalHeaders,
         delimiter: ';',
-        quoted: true, // Quote fields only when necessary (e.g., contains delimiter, quote, or newline)
+        quoted: true,
         quote: '"',
-        escape: '"' // How to escape quotes within fields
+        escape: '"'
       });
 
       fs.writeFileSync(csvFilePath, output);
